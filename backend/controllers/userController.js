@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs')
 const User = require('../models/userModel')
+const jwt = require('jsonwebtoken')
 
 const { generateToken } = require('../lib/utils')
 
@@ -36,25 +37,40 @@ const signup = async (req, res) => {
 
 // User Login
 const login = async (req, res) => {
-    const { username, email, password } = req.body
-    try {
-        const user = await User.findOne({ username })
+  const { username, password } = req.body;
 
-        if (!user) {
-            return res.status(400).json({ msg: 'Invalid credentials' })
-        }
-
-        const isPassword = bcrypt.compare(password, user.password)
-
-        if (!isPassword) {
-            return res.status(400).json({ msg: 'Invalid credentials' })
-        }
-
-        res.status(200).json({ msg: 'User logged in' })
-    } catch (error) {
-        res.status(500).json({ error: error.message })
+  try {
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(400).json({ msg: "Invalid credentials" });
     }
-}
+
+    const isPassword = await bcrypt.compare(password, user.password);
+    if (!isPassword) {
+      return res.status(400).json({ msg: "Invalid credentials" });
+    }
+
+    const token = jwt.sign(
+      { id: user._id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.status(200).json({
+      msg: "User logged in successfully",
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+      },
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 
 // User Logout
 const logout = async (req, res) => {
